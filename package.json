@@ -34,17 +34,17 @@
     "invoice",
     "generator"
   ],
-  "author": "",
+  "author": "koalalikecode",
   "license": "MIT",
   "type": "commonjs",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/koalalikecode/excel-template-engine"
   },
   "bugs": {
-    "url": ""
+    "url": "https://github.com/koalalikecode/excel-template-engine/issues"
   },
-  "homepage": "",
+  "homepage": "https://github.com/koalalikecode/excel-template-engine",
   "engines": {
     "node": ">=14.0.0"
   },
