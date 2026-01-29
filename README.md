@@ -18,7 +18,14 @@ A lightweight library for rendering Excel templates with dynamic data using must
 ## 📦 Installation
 
 ```bash
+# npm
 npm install excel-template-engine
+
+# yarn
+yarn add excel-template-engine
+
+# pnpm
+pnpm add excel-template-engine
 ```
 
 ## 🚀 Quick Start
