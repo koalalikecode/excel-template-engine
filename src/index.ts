@@ -243,12 +243,80 @@ function renderJoin(path: string, separator: string, scopes: unknown[]): string 
 }
 
 /**
+ * Calculate formula value directly from data (for interpolated strings)
+ */
+function calculateFormulaValue(
+    formulaType: string,
+    arrayPath: string,
+    fieldName: string,
+    scopes: unknown[]
+): string {
+    const arr = resolve(arrayPath, scopes);
+    if (!_.isArray(arr) || _.isEmpty(arr)) {
+        return "0";
+    }
+
+    const values = arr
+        .map(item => {
+            const val = _.get(item as object, fieldName);
+            if (_.isNumber(val)) return val;
+            if (_.isString(val) && val.trim() !== '' && !isNaN(Number(val))) {
+                return Number(val);
+            }
+            return NaN;
+        })
+        .filter(v => !isNaN(v));
+
+    if (values.length === 0) return "0";
+
+    let result: number;
+    switch (formulaType.toUpperCase()) {
+        case 'SUM':
+            result = _.sum(values);
+            break;
+        case 'AVERAGE':
+            result = _.mean(values);
+            break;
+        case 'COUNT':
+            result = values.length;
+            break;
+        case 'MIN':
+            result = _.min(values) ?? 0;
+            break;
+        case 'MAX':
+            result = _.max(values) ?? 0;
+            break;
+        default:
+            return `#ERROR: Unknown formula type: ${formulaType}`;
+    }
+
+    return String(result);
+}
+
+/**
  * Render an interpolated string with multiple placeholders
+ * Supports: {{value}}, {{path | join("sep")}}, {{#formula TYPE path}}
  */
 function renderInterpolatedString(template: string, scopes: unknown[]): string {
     return template.replace(PLACEHOLDER_REGEX.INLINE, (fullMatch, exprContent) => {
         const expr = _.trim(exprContent);
 
+        // Handle formula: {{#formula SUM items.amount}}
+        const formulaMatch = expr.match(/^#formula\s+(SUM|AVERAGE|COUNT|MIN|MAX)\s+([A-Za-z_][\w.]*)$/i);
+        if (formulaMatch) {
+            const formulaType = formulaMatch[1];
+            const target = formulaMatch[2];
+            const lastDotIndex = target.lastIndexOf('.');
+
+            if (lastDotIndex > 0) {
+                const arrayPath = target.substring(0, lastDotIndex);
+                const fieldName = target.substring(lastDotIndex + 1);
+                return calculateFormulaValue(formulaType, arrayPath, fieldName, scopes);
+            }
+            return `#ERROR: Invalid formula path: ${target}`;
+        }
+
+        // Handle join: {{items.name | join(", ")}}
         const joinMatch = expr.match(/^(.+?)\s*\|\s*join\(["'](.+?)["']\)$/);
         if (joinMatch) {
             const path = _.trim(joinMatch[1]);
@@ -256,6 +324,7 @@ function renderInterpolatedString(template: string, scopes: unknown[]): string {
             return renderJoin(path, separator, scopes);
         }
 
+        // Handle simple value: {{name}}
         const value = resolve(expr, scopes);
         if (_.isNil(value)) return "";
         return String(value);
