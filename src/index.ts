@@ -10,10 +10,11 @@ import type {
     CellTemplate,
     MergePattern,
     PrintAreaInfo,
+    RenderOptions,
 } from './types';
 
 // Re-export types for library consumers
-export type { Placeholder, FormulaType } from './types';
+export type { Placeholder, FormulaType, RenderOptions } from './types';
 
 // ============================================
 // 1. PATH RESOLUTION & SCOPE
@@ -113,7 +114,7 @@ function detectPlaceholder(cellValue: unknown): Placeholder | null {
 /**
  * Render a value placeholder - preserves type for Excel
  */
-function renderValue(path: string, scopes: unknown[]): unknown {
+function renderValue(path: string, scopes: unknown[], options: RenderOptions = {}): unknown {
     const value = resolve(path, scopes);
 
     if (_.isNil(value)) return "";
@@ -123,11 +124,13 @@ function renderValue(path: string, scopes: unknown[]): unknown {
         const trimmed = value.trim();
         if (trimmed === '') return value;
 
-        if (!isNaN(Number(trimmed))) {
+        // Auto-parse numeric strings only when explicitly enabled
+        if (options.autoParseNumbers && trimmed !== '' && !isNaN(Number(trimmed))) {
             return Number(trimmed);
         }
 
-        if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+        // Only auto-parse strict ISO date strings (e.g. "2024-01-15", "2024-01-15T10:30:00Z")
+        if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/.test(trimmed)) {
             const timestamp = Date.parse(trimmed);
             if (!isNaN(timestamp)) {
                 return new Date(timestamp);
@@ -376,13 +379,13 @@ function handleRichText(cellValue: unknown, scopes: unknown[]): unknown {
 /**
  * Render a cell based on its placeholder type or content
  */
-function renderCell(cellValue: unknown, scopes: unknown[]): unknown {
+function renderCell(cellValue: unknown, scopes: unknown[], options: RenderOptions = {}): unknown {
     const placeholder = detectPlaceholder(cellValue);
 
     if (placeholder) {
         switch (placeholder.type) {
             case 'value':
-                return renderValue(placeholder.path, scopes);
+                return renderValue(placeholder.path, scopes, options);
             case 'join':
                 return renderJoin(placeholder.path, placeholder.separator!, scopes);
             case 'table':
@@ -663,7 +666,8 @@ function applyMergePatternsToRow(
 function applyRowTemplate(
     newRow: ExcelJS.Row,
     templates: CellTemplate[],
-    scopes: unknown[]
+    scopes: unknown[],
+    options: RenderOptions = {}
 ): void {
     const processedCols = new Set<number>();
 
@@ -676,7 +680,7 @@ function applyRowTemplate(
             const { startCol, endCol } = cellTemplate.mergeInfo;
 
             if (colNumber === startCol) {
-                const renderedValue = renderCell(cellTemplate.value, scopes);
+                const renderedValue = renderCell(cellTemplate.value, scopes, options);
                 cell.value = renderedValue as ExcelJS.CellValue;
                 cell.style = cellTemplate.style;
                 if (cellTemplate.numFmt) cell.numFmt = cellTemplate.numFmt;
@@ -686,7 +690,7 @@ function applyRowTemplate(
                 }
             }
         } else {
-            const renderedValue = renderCell(cellTemplate.value, scopes);
+            const renderedValue = renderCell(cellTemplate.value, scopes, options);
             cell.value = renderedValue as ExcelJS.CellValue;
             cell.style = cellTemplate.style;
             if (cellTemplate.numFmt) cell.numFmt = cellTemplate.numFmt;
@@ -723,7 +727,8 @@ function renderTable(
     arrayPath: string,
     scopes: unknown[],
     rootData: unknown,
-    _printAreaInfo: PrintAreaInfo | null
+    _printAreaInfo: PrintAreaInfo | null,
+    options: RenderOptions = {}
 ): TableRenderResult {
     const allScopes = [...scopes, rootData];
     const arr = resolve(arrayPath, allScopes);
@@ -755,7 +760,7 @@ function renderTable(
         const newRow = worksheet.insertRow(insertPosition, []);
         const localScopes = [item, ...allScopes];
 
-        applyRowTemplate(newRow, templates, localScopes);
+        applyRowTemplate(newRow, templates, localScopes, options);
         applyMergePatternsToRow(worksheet, insertPosition, mergePatterns);
     });
 
@@ -810,7 +815,7 @@ function scanTables(worksheet: ExcelJS.Worksheet): TableMetadata[] {
 // 7. MAIN ENGINE
 // ============================================
 
-function processWorkbook(workbook: ExcelJS.Workbook, data: unknown): void {
+function processWorkbook(workbook: ExcelJS.Workbook, data: unknown, options: RenderOptions = {}): void {
     _.forEach(workbook.worksheets, (worksheet) => {
         const columnWidths: Map<number, number | undefined> = new Map();
         worksheet.columns.forEach((col, index) => {
@@ -834,7 +839,7 @@ function processWorkbook(workbook: ExcelJS.Workbook, data: unknown): void {
         const hideEntries: { rows: number[], insertedAt: number, rowsInserted: number }[] = [];
 
         _.forEach(tables, ({ rowNumber, path }) => {
-            const result = renderTable(worksheet, rowNumber, path, [], data, printAreaInfo);
+            const result = renderTable(worksheet, rowNumber, path, [], data, printAreaInfo, options);
 
             if (result.tableInfo) {
                 tableInfoMap.set(path, result.tableInfo);
@@ -897,7 +902,7 @@ function processWorkbook(workbook: ExcelJS.Workbook, data: unknown): void {
             row.eachCell((cell) => {
                 const placeholder = detectPlaceholder(cell.value);
                 if (!placeholder) {
-                    cell.value = renderCell(cell.value, [data]) as ExcelJS.CellValue;
+                    cell.value = renderCell(cell.value, [data], options) as ExcelJS.CellValue;
                     return;
                 }
 
@@ -925,7 +930,7 @@ function processWorkbook(workbook: ExcelJS.Workbook, data: unknown): void {
                     return;
                 }
 
-                cell.value = renderCell(cell.value, [data]) as ExcelJS.CellValue;
+                cell.value = renderCell(cell.value, [data], options) as ExcelJS.CellValue;
             });
         });
 
@@ -946,12 +951,13 @@ function processWorkbook(workbook: ExcelJS.Workbook, data: unknown): void {
 async function renderExcelTemplate(
     templatePath: string,
     data: unknown,
-    outputPath: string
+    outputPath: string,
+    options: RenderOptions = {}
 ): Promise<void> {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(templatePath);
 
-    processWorkbook(workbook, data);
+    processWorkbook(workbook, data, options);
 
     await workbook.xlsx.writeFile(outputPath);
 }
@@ -961,7 +967,8 @@ async function renderExcelTemplate(
  */
 async function renderExcelTemplateFromBuffer(
     templateBuffer: ArrayBuffer | Buffer | Uint8Array,
-    data: unknown
+    data: unknown,
+    options: RenderOptions = {}
 ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
 
@@ -977,7 +984,7 @@ async function renderExcelTemplateFromBuffer(
     }
 
     await workbook.xlsx.load(bufferToLoad);
-    processWorkbook(workbook, data);
+    processWorkbook(workbook, data, options);
 
     const outputBuffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(outputBuffer);

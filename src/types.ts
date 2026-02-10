@@ -91,25 +91,6 @@ export interface MergePattern {
 // ============================================
 
 /**
- * Data validation result
- */
-export interface ValidationResult {
-    valid: boolean;
-    missing: string[];
-}
-
-/**
- * Debug placeholder information
- */
-export interface PlaceholderDebugInfo {
-    sheet: number;
-    cell: string;
-    type: PlaceholderType;
-    path: string;
-    separator?: string;
-}
-
-/**
  * Print area tracking
  */
 export interface PrintAreaInfo {
@@ -118,4 +99,17 @@ export interface PrintAreaInfo {
     startCol: string;
     endCol: string;
     originalEndRow: number;
+}
+
+/**
+ * Options for rendering Excel templates
+ */
+export interface RenderOptions {
+    /**
+     * When true, automatically converts numeric strings to numbers in Excel.
+     * e.g. "100" → 100, "3.14" → 3.14
+     * ⚠️ This may cause data loss for strings with leading zeros (e.g. "001234" → 1234)
+     * @default false
+     */
+    autoParseNumbers?: boolean;
 }
