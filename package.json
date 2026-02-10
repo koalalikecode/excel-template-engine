@@ -1,6 +1,6 @@
 {
   "name": "excel-template-engine",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "📊 A lightweight library for rendering Excel templates with dynamic data using mustache-like syntax.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
