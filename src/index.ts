@@ -999,3 +999,15 @@ export {
     renderExcelTemplate,
     renderExcelTemplateFromBuffer,
 };
+
+// @internal - exported for testing only
+export {
+    resolve as _resolve,
+    detectPlaceholder as _detectPlaceholder,
+    renderValue as _renderValue,
+    renderFormula as _renderFormula,
+    renderJoin as _renderJoin,
+    renderInterpolatedString as _renderInterpolatedString,
+    renderCell as _renderCell,
+    calculateFormulaValue as _calculateFormulaValue,
+};

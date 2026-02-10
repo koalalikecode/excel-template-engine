@@ -3,6 +3,7 @@
 A lightweight library for rendering Excel templates with dynamic data using mustache-like `{{placeholder}}` syntax.
 
 [![npm version](https://img.shields.io/npm/v/excel-template-engine.svg)](https://www.npmjs.com/package/excel-template-engine)
+[![CI](https://github.com/koalalikecode/excel-template-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/koalalikecode/excel-template-engine/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## ✨ Features

@@ -19,7 +19,9 @@
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm test && npm run build"
   },
   "keywords": [
     "excel",
@@ -52,7 +54,8 @@
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^25.1.0",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
